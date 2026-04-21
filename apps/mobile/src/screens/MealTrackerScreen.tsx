@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { apiFetch } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import type { MealEstimateResponse } from '../types';
 
 export function MealTrackerScreen() {
   const { userId } = useAuth();
@@ -11,7 +12,7 @@ export function MealTrackerScreen() {
   const analyze = async () => {
     if (!userId) return;
 
-    const estimate = await apiFetch<{ mealName: string; calories: number; proteinGrams: number; carbsGrams: number; fatsGrams: number; confidence: number; needsConfirmation: boolean }>('/meals/analyze', {
+    const estimate = await apiFetch<MealEstimateResponse>('/meals/analyze', {
       method: 'POST',
       body: JSON.stringify({ photoHint })
     });

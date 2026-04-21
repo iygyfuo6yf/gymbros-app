@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { apiFetch } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import type { ProgressiveOverloadResponse } from '../types';
 
 export function WorkoutScreen() {
   const { userId } = useAuth();
@@ -16,7 +17,7 @@ export function WorkoutScreen() {
       body: JSON.stringify({ userId, exerciseId, reps: 5, weightKg: 100, repRange: '5-8', performedAt: new Date().toISOString() })
     });
 
-    const progress = await apiFetch<{ trend: Array<{ estimated1RM: number }> }>(`/workouts/progressive/${userId}/${exerciseId}`);
+    const progress = await apiFetch<ProgressiveOverloadResponse>(`/workouts/progressive/${userId}/${exerciseId}`);
     const latest = progress.trend.at(-1)?.estimated1RM;
     setStatus(`Set logged. Latest estimated 1RM: ${latest ?? '-'} kg`);
   };

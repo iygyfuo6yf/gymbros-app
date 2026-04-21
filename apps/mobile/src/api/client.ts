@@ -10,8 +10,8 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   });
 
   if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    throw new Error(body.error ?? `Request failed (${response.status})`);
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.error ?? `Request failed (${response.status}): unable to parse error response`);
   }
 
   return response.json() as Promise<T>;

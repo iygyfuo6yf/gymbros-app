@@ -22,7 +22,7 @@ export function mergeLatest<T extends SyncableRecord>(serverRecords: T[], incomi
     const currentTime = new Date(current.updatedAt).getTime();
 
     if (incomingTime >= currentTime) {
-      byId.set(incoming.id, { ...current, ...incoming, updatedAt: incoming.updatedAt });
+      byId.set(incoming.id, { ...current, ...incoming });
     }
   }
 

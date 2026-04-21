@@ -69,6 +69,7 @@ workoutRouter.get('/progressive/:userId/:exerciseId', (req, res) => {
 
   const trend = logs.map((entry) => ({
     performedAt: entry.performedAt,
+    // Epley estimate for trend tracking in MVP scaffold.
     estimated1RM: Number((entry.weightKg * (1 + entry.reps / 30)).toFixed(2))
   }));
 

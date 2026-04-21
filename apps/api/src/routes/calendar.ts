@@ -2,8 +2,10 @@ import { Router } from 'express';
 import { store } from '../lib/store.js';
 
 export const calendarRouter = Router();
+const MILLISECONDS_IN_DAY = 24 * 60 * 60 * 1000;
 
 calendarRouter.get('/summary/:userId', (req, res) => {
+  // Reduce to unique calendar days to avoid same-day duplicate sessions affecting streak logic.
   const workoutDays = new Set(
     store.setLogs
       .filter((candidate) => candidate.userId === req.params.userId)
@@ -21,7 +23,7 @@ calendarRouter.get('/summary/:userId', (req, res) => {
 
     const current = new Date(sortedDays[i + 1]);
     const previous = new Date(sortedDays[i]);
-    const diff = (current.getTime() - previous.getTime()) / (24 * 60 * 60 * 1000);
+    const diff = (current.getTime() - previous.getTime()) / MILLISECONDS_IN_DAY;
 
     if (diff === 1) {
       streak += 1;

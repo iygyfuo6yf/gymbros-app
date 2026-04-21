@@ -13,15 +13,26 @@ const goalAdjustment = {
   bulk: 300
 } as const;
 
+const MIN_DAILY_CALORIES = 1400;
+const CALORIES_PER_GRAM_PROTEIN = 4;
+const CALORIES_PER_GRAM_CARBS = 4;
+const CALORIES_PER_GRAM_FAT = 9;
+const MIN_CARBS_GRAMS = 60;
+const PROTEIN_MULTIPLIER_BULK = 2.0;
+const PROTEIN_MULTIPLIER_NON_BULK = 2.2;
+
 export function calculateTargets(input: Pick<NutritionProfile, 'age' | 'sex' | 'weightKg' | 'heightCm' | 'activityLevel' | 'goal'>) {
   const bmr = input.sex === 'male'
     ? 10 * input.weightKg + 6.25 * input.heightCm - 5 * input.age + 5
     : 10 * input.weightKg + 6.25 * input.heightCm - 5 * input.age - 161;
 
-  const calories = Math.max(1400, Math.round(bmr * activityMultiplier[input.activityLevel] + goalAdjustment[input.goal]));
-  const proteinGrams = Math.round(input.weightKg * (input.goal === 'bulk' ? 2.0 : 2.2));
-  const fatsGrams = Math.round((calories * 0.25) / 9);
-  const carbsGrams = Math.max(60, Math.round((calories - (proteinGrams * 4 + fatsGrams * 9)) / 4));
+  const calories = Math.max(MIN_DAILY_CALORIES, Math.round(bmr * activityMultiplier[input.activityLevel] + goalAdjustment[input.goal]));
+  const proteinGrams = Math.round(input.weightKg * (input.goal === 'bulk' ? PROTEIN_MULTIPLIER_BULK : PROTEIN_MULTIPLIER_NON_BULK));
+  const fatsGrams = Math.round((calories * 0.25) / CALORIES_PER_GRAM_FAT);
+  const carbsGrams = Math.max(
+    MIN_CARBS_GRAMS,
+    Math.round((calories - (proteinGrams * CALORIES_PER_GRAM_PROTEIN + fatsGrams * CALORIES_PER_GRAM_FAT)) / CALORIES_PER_GRAM_CARBS)
+  );
 
   return {
     dailyCalories: calories,
