@@ -115,6 +115,8 @@ dist
 
 # DynamoDB Local files
 .dynamodb/
+apps/api/prisma/*.db
+apps/api/prisma/*.db-journal
 
 # Firebase cache directory
 .firebase/
