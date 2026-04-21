@@ -85,11 +85,33 @@ See `/.env.example`.
 ## Local setup
 
 ```bash
+# 1) install dependencies
 npm install
+
+# 2) create env files
 cp .env.example .env
 cp apps/api/.env.example apps/api/.env
 cp apps/mobile/.env.example apps/mobile/.env
 cp apps/watch-companion/.env.example apps/watch-companion/.env
+
+# 3) generate prisma client + run migrations + seed sample data
+npm run prisma:generate -w apps/api
+npm run prisma:migrate:deploy -w apps/api
+npm run seed -w apps/api
+```
+
+## Beginner startup flow (exact steps)
+
+```bash
+# terminal A: start API
+npm run dev -w apps/api
+
+# terminal B: verify API is live + ready
+curl http://localhost:4000/health
+curl http://localhost:4000/ready
+
+# terminal C: start mobile app
+npm run dev -w apps/mobile
 ```
 
 ## Run commands
@@ -108,8 +130,11 @@ npm run dev -w apps/mobile
 ## Testing commands
 
 ```bash
-# backend tests
+# backend tests (all)
 npm run test
+
+# backend tests (targeted hardening suite)
+npm run test -w apps/api -- tests/auth.test.ts tests/meals.test.ts tests/sync.test.ts tests/workouts.test.ts tests/health.test.ts
 
 # type checking
 npm run typecheck
@@ -126,9 +151,11 @@ npm run build
 - **JWT errors in auth**
   - Set a long random `JWT_SECRET` in `apps/api/.env`.
 - **Prisma schema not generated yet**
-  - Run `npm run prisma:generate -w apps/api`.
+  - Run `npm run prisma:generate -w apps/api` then `npm run prisma:migrate:deploy -w apps/api`.
 - **Port conflict on 4000**
   - Change `PORT` in `apps/api/.env`.
+- **API startup fails with env validation error**
+  - Ensure `apps/api/.env` has valid values for `JWT_SECRET` (16+ chars) and `DATABASE_URL`.
 
 ## Exact next 10 tasks
 

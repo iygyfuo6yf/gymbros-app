@@ -3,13 +3,14 @@ import { z } from 'zod';
 import { v4 as uuid } from 'uuid';
 import { createSessionTokens } from '../lib/auth.js';
 import { store } from '../lib/store.js';
+import { sanitizedString } from '../lib/validation.js';
 
 const bodySchema = z.object({
   provider: z.enum(['google', 'apple']),
-  idToken: z.string().min(8),
-  email: z.string().email(),
-  name: z.string().min(1)
-});
+  idToken: sanitizedString(8, 4096),
+  email: z.string().trim().toLowerCase().email().max(254),
+  name: sanitizedString(1, 80)
+}).strict();
 
 export const authRouter = Router();
 

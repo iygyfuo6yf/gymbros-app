@@ -1,28 +1,31 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { v4 as uuid } from 'uuid';
+import { AppError } from '../lib/apiError.js';
+import { mealAnalysisRateLimiter } from '../lib/rateLimit.js';
+import { isoDateTime, sanitizedId, sanitizedString } from '../lib/validation.js';
 import { estimateFromPhotoHint } from '../services/aiMeal.js';
 import { store } from '../lib/store.js';
 
 const analyzeSchema = z.object({
-  photoHint: z.string().min(2)
-});
+  photoHint: sanitizedString(2, 200)
+}).strict();
 
 const logSchema = z.object({
-  userId: z.string().min(1),
-  mealName: z.string().min(1),
+  userId: sanitizedId(),
+  mealName: sanitizedString(1, 100),
   calories: z.number().int().min(0),
   proteinGrams: z.number().min(0),
   carbsGrams: z.number().min(0),
   fatsGrams: z.number().min(0),
   confidence: z.number().min(0).max(1),
   source: z.enum(['ai', 'manual']),
-  consumedAt: z.string().datetime()
-});
+  consumedAt: isoDateTime()
+}).strict();
 
 export const mealsRouter = Router();
 
-mealsRouter.post('/analyze', (req, res) => {
+mealsRouter.post('/analyze', mealAnalysisRateLimiter, (req, res) => {
   const payload = analyzeSchema.parse(req.body);
   const estimate = estimateFromPhotoHint(payload.photoHint);
 
@@ -34,6 +37,10 @@ mealsRouter.post('/analyze', (req, res) => {
 
 mealsRouter.post('/logs', (req, res) => {
   const payload = logSchema.parse(req.body);
+  const user = store.users.find((candidate) => candidate.id === payload.userId);
+  if (!user) {
+    throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+  }
   const meal = {
     id: uuid(),
     ...payload,
@@ -45,12 +52,11 @@ mealsRouter.post('/logs', (req, res) => {
 });
 
 mealsRouter.put('/logs/:id', (req, res) => {
-  const payload = logSchema.partial().parse(req.body);
+  const payload = logSchema.partial().strict().parse(req.body);
   const index = store.mealLogs.findIndex((candidate) => candidate.id === req.params.id);
 
   if (index < 0) {
-    res.status(404).json({ error: 'Meal log not found' });
-    return;
+    throw new AppError(404, 'MEAL_NOT_FOUND', 'Meal log not found');
   }
 
   store.mealLogs[index] = {

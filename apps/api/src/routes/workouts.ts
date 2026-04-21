@@ -1,25 +1,27 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { v4 as uuid } from 'uuid';
+import { AppError } from '../lib/apiError.js';
+import { isoDateTime, sanitizedId, sanitizedString } from '../lib/validation.js';
 import { store } from '../lib/store.js';
 
 const routineSchema = z.object({
-  userId: z.string().min(1),
-  name: z.string().min(1),
+  userId: sanitizedId(),
+  name: sanitizedString(1, 100),
   exercises: z.array(z.object({
-    exerciseId: z.string().min(1),
-    repRange: z.string().min(3)
-  })).min(1)
-});
+    exerciseId: sanitizedId(),
+    repRange: sanitizedString(3, 20)
+  }).strict()).min(1)
+}).strict();
 
 const setLogSchema = z.object({
-  userId: z.string().min(1),
-  exerciseId: z.string().min(1),
+  userId: sanitizedId(),
+  exerciseId: sanitizedId(),
   reps: z.number().int().min(1),
   weightKg: z.number().min(0),
-  repRange: z.string().min(3),
-  performedAt: z.string().datetime()
-});
+  repRange: sanitizedString(3, 20),
+  performedAt: isoDateTime()
+}).strict();
 
 export const workoutRouter = Router();
 
@@ -40,6 +42,15 @@ workoutRouter.get('/exercises', (req, res) => {
 
 workoutRouter.post('/routines', (req, res) => {
   const payload = routineSchema.parse(req.body);
+  const user = store.users.find((candidate) => candidate.id === payload.userId);
+  if (!user) {
+    throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+  }
+  for (const exercise of payload.exercises) {
+    if (!store.exercises.some((candidate) => candidate.id === exercise.exerciseId)) {
+      throw new AppError(404, 'EXERCISE_NOT_FOUND', `Exercise not found: ${exercise.exerciseId}`);
+    }
+  }
   const routine = {
     id: uuid(),
     ...payload,
@@ -52,6 +63,13 @@ workoutRouter.post('/routines', (req, res) => {
 
 workoutRouter.post('/sets', (req, res) => {
   const payload = setLogSchema.parse(req.body);
+  const user = store.users.find((candidate) => candidate.id === payload.userId);
+  if (!user) {
+    throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+  }
+  if (!store.exercises.some((candidate) => candidate.id === payload.exerciseId)) {
+    throw new AppError(404, 'EXERCISE_NOT_FOUND', 'Exercise not found');
+  }
   const setLog = {
     id: uuid(),
     ...payload,

@@ -1,11 +1,7 @@
 import jwt from 'jsonwebtoken';
+import { env } from '../config/env.js';
 
-const secret = process.env.JWT_SECRET ?? 'dev-secret-change-me';
-const isProduction = process.env.NODE_ENV === 'production';
-
-if (isProduction && !process.env.JWT_SECRET) {
-  throw new Error('JWT_SECRET must be set in production');
-}
+const secret = env.JWT_SECRET;
 
 export function createSessionTokens(userId: string) {
   const accessToken = jwt.sign({ sub: userId, scope: 'access' }, secret, { expiresIn: '30m' });
