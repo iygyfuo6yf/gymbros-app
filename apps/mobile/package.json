@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.0-preview.2",
+    "@react-native-async-storage/async-storage": "^2.1.0",
     "expo": "52.0.0",
     "expo-apple-authentication": "7.0.0",
     "expo-auth-session": "6.0.0",

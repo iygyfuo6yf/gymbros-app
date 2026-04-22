@@ -19,6 +19,8 @@ model User {
   mealLogs         MealLog[]
   workoutRoutines  WorkoutRoutine[]
   setLogs          WorkoutSetLog[]
+  refreshTokens    RefreshToken[]
+  watchSnapshots   WatchWorkoutSnapshot[]
 }
 
 model UserProfile {
@@ -49,6 +51,8 @@ model MealLog {
   fatsGrams         Int
   confidence        Float
   source            String
+  confirmedByUser   Boolean  @default(false)
+  photoPath         String?
   consumedAt        DateTime
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -60,6 +64,7 @@ model Exercise {
   name         String
   muscleGroup  String
   equipment    String
+  goal         String @default("general")
 }
 
 model WorkoutRoutine {
@@ -100,4 +105,41 @@ model Gym {
   city        String
   promoted    Boolean @default(false)
   rating      Float
+}
+
+model RefreshToken {
+  id          String   @id @default(cuid())
+  userId      String
+  tokenHash   String   @unique
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime @default(now())
+  rotatedFrom String?
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model MealPhoto {
+  id          String   @id @default(cuid())
+  userId      String
+  path        String
+  mimeType    String
+  sizeBytes   Int
+  createdAt   DateTime @default(now())
+}
+
+model RoutineTemplate {
+  id          String   @id @default(cuid())
+  goal        String
+  name        String
+  exercises   String
+}
+
+model WatchWorkoutSnapshot {
+  id               String   @id @default(cuid())
+  userId           String
+  activeRoutineName String
+  currentSet       Int
+  targetRepRange   String
+  capturedAt       DateTime @default(now())
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

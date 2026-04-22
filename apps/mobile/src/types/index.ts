@@ -16,6 +16,8 @@ export interface MealEstimateResponse {
   fatsGrams: number;
   confidence: number;
   needsConfirmation: boolean;
+  photoPath?: string;
+  model?: 'heuristic' | 'vlm';
 }
 
 export interface ProgressiveOverloadResponse {

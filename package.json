@@ -7,6 +7,7 @@
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev -w apps/api\" \"npm run dev -w apps/mobile\"",
+    "lint": "npm run typecheck",
     "build": "npm run build -w apps/api",
     "test": "npm run test -w apps/api",
     "typecheck": "npm run typecheck -w apps/api && npm run typecheck -w apps/mobile && npm run typecheck -w apps/watch-companion"
