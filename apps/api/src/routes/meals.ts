@@ -3,7 +3,7 @@ import path from 'path';
 import { Router } from 'express';
 import { z } from 'zod';
 import { AppError } from '../lib/apiError.js';
-import { mealAnalysisRateLimiter } from '../lib/rateLimit.js';
+import { mealAnalysisRateLimiter, mealUploadRateLimiter } from '../lib/rateLimit.js';
 import { isoDateTime, sanitizedId, sanitizedString } from '../lib/validation.js';
 import { prisma } from '../lib/prisma.js';
 import { env } from '../config/env.js';
@@ -38,7 +38,7 @@ const logSchema = z.object({
 
 export const mealsRouter = Router();
 
-mealsRouter.post('/uploads', asyncHandler(async (req, res) => {
+mealsRouter.post('/uploads', mealUploadRateLimiter, asyncHandler(async (req, res) => {
   const payload = uploadSchema.parse(req.body);
 
   const user = await prisma.user.findUnique({ where: { id: payload.userId } });
