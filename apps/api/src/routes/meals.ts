@@ -146,5 +146,9 @@ mealsRouter.get('/logs/:userId', asyncHandler(async (req, res) => {
     orderBy: { consumedAt: 'desc' }
   });
 
-  res.status(200).json(logs.map((item) => ({ ...item, consumedAt: item.consumedAt.toISOString(), updatedAt: item.updatedAt.toISOString() })));
+  res.status(200).json(logs.map((item: { consumedAt: Date; updatedAt: Date }) => ({
+    ...item,
+    consumedAt: item.consumedAt.toISOString(),
+    updatedAt: item.updatedAt.toISOString()
+  })));
 }));

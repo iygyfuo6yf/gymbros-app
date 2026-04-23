@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import type { MealLog, Prisma, WorkoutSetLog } from '@prisma/client';
 import { AppError } from '../lib/apiError.js';
 import { isoDateTime, sanitizedId, sanitizedString } from '../lib/validation.js';
 import { prisma } from '../lib/prisma.js';
@@ -84,7 +85,7 @@ syncRouter.post('/', asyncHandler(async (req, res) => {
     prisma.workoutSetLog.findMany({ where: { userId: payload.userId } })
   ]);
 
-  const serverMeals = serverMealLogs.map((item) => ({
+  const serverMeals = serverMealLogs.map((item: MealLog) => ({
     id: item.id,
     userId: item.userId,
     mealName: item.mealName,
@@ -100,7 +101,7 @@ syncRouter.post('/', asyncHandler(async (req, res) => {
     updatedAt: item.updatedAt.toISOString()
   }));
 
-  const serverSets = serverSetLogs.map((item) => ({
+  const serverSets = serverSetLogs.map((item: WorkoutSetLog) => ({
     id: item.id,
     userId: item.userId,
     exerciseId: item.exerciseId,
@@ -132,7 +133,7 @@ syncRouter.post('/', asyncHandler(async (req, res) => {
     payload.mealLogs.map((candidate) => {
       const source = forcedSource.get(candidate.id);
       if (source === 'server') {
-        const server = serverMeals.find((entry) => entry.id === candidate.id);
+        const server = serverMeals.find((entry: { id: string }) => entry.id === candidate.id);
         return server ?? candidate;
       }
       return candidate;
@@ -144,14 +145,14 @@ syncRouter.post('/', asyncHandler(async (req, res) => {
     payload.workoutSetLogs.map((candidate) => {
       const source = forcedSource.get(candidate.id);
       if (source === 'server') {
-        const server = serverSets.find((entry) => entry.id === candidate.id);
+        const server = serverSets.find((entry: { id: string }) => entry.id === candidate.id);
         return server ?? candidate;
       }
       return candidate;
     })
   );
 
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.mealLog.deleteMany({ where: { userId: payload.userId } });
     if (mergedMeals.length > 0) {
       await tx.mealLog.createMany({

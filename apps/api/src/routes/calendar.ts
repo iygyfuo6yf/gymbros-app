@@ -11,7 +11,7 @@ calendarRouter.get('/summary/:userId', asyncHandler(async (req, res) => {
     prisma.mealLog.findMany({ where: { userId: req.params.userId } })
   ]);
 
-  const workoutDays = new Set(setLogs.map((candidate) => candidate.performedAt.toISOString().slice(0, 10)));
+  const workoutDays = new Set<string>(setLogs.map((candidate: { performedAt: Date }) => candidate.performedAt.toISOString().slice(0, 10)));
   const sortedDays = Array.from(workoutDays).sort();
   let streak = 0;
 
