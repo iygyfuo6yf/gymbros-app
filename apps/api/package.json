@@ -7,7 +7,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
-    "test": "vitest run",
+    "test": "DATABASE_URL=file:./dev.db JWT_SECRET=dev_jwt_secret_replace_me_12345 sh -c 'prisma migrate deploy && prisma generate && vitest run'",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",

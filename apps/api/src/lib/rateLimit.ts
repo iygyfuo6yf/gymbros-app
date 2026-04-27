@@ -15,3 +15,4 @@ function buildRateLimit(max: number) {
 
 export const authRateLimiter = buildRateLimit(20);
 export const mealAnalysisRateLimiter = buildRateLimit(30);
+export const mealUploadRateLimiter = buildRateLimit(20);

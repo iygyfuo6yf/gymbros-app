@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { v4 as uuid } from 'uuid';
 import { AppError } from '../lib/apiError.js';
 import { isoDateTime, sanitizedId, sanitizedString } from '../lib/validation.js';
-import { store } from '../lib/store.js';
+import { prisma } from '../lib/prisma.js';
+import { asyncHandler } from '../lib/asyncHandler.js';
 
 const routineSchema = z.object({
   userId: sanitizedId(),
@@ -25,71 +25,127 @@ const setLogSchema = z.object({
 
 export const workoutRouter = Router();
 
-workoutRouter.get('/exercises', (req, res) => {
+workoutRouter.get('/exercises', asyncHandler(async (req, res) => {
   const q = `${req.query.q ?? ''}`.toLowerCase();
   const muscle = `${req.query.muscle ?? ''}`.toLowerCase();
   const equipment = `${req.query.equipment ?? ''}`.toLowerCase();
+  const goal = `${req.query.goal ?? ''}`.toLowerCase();
 
-  const filtered = store.exercises.filter((exercise) => {
-    const textMatch = !q || exercise.name.toLowerCase().includes(q);
-    const muscleMatch = !muscle || exercise.muscleGroup === muscle;
-    const equipmentMatch = !equipment || exercise.equipment === equipment;
-    return textMatch && muscleMatch && equipmentMatch;
+  const filtered = await prisma.exercise.findMany({
+    where: {
+      ...(q ? { name: { contains: q } } : {}),
+      ...(muscle ? { muscleGroup: muscle } : {}),
+      ...(equipment ? { equipment } : {}),
+      ...(goal ? { goal } : {})
+    },
+    orderBy: { name: 'asc' }
   });
 
   res.status(200).json(filtered);
-});
+}));
 
-workoutRouter.post('/routines', (req, res) => {
+workoutRouter.get('/templates', asyncHandler(async (req, res) => {
+  const goal = `${req.query.goal ?? ''}`;
+  const templates = await prisma.routineTemplate.findMany({
+    where: goal ? { goal } : undefined,
+    orderBy: { name: 'asc' }
+  });
+
+  res.status(200).json(templates.map((template: (typeof templates)[number]) => ({
+    id: template.id,
+    goal: template.goal,
+    name: template.name,
+    exercises: JSON.parse(template.exercises)
+  })));
+}));
+
+workoutRouter.post('/routines', asyncHandler(async (req, res) => {
   const payload = routineSchema.parse(req.body);
-  const user = store.users.find((candidate) => candidate.id === payload.userId);
+  const user = await prisma.user.findUnique({ where: { id: payload.userId } });
   if (!user) {
     throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
   }
-  for (const exercise of payload.exercises) {
-    if (!store.exercises.some((candidate) => candidate.id === exercise.exerciseId)) {
-      throw new AppError(404, 'EXERCISE_NOT_FOUND', `Exercise not found: ${exercise.exerciseId}`);
-    }
+
+  const exerciseIds = payload.exercises.map((exercise) => exercise.exerciseId);
+  const exerciseCount = await prisma.exercise.count({ where: { id: { in: exerciseIds } } });
+  if (exerciseCount !== exerciseIds.length) {
+    throw new AppError(404, 'EXERCISE_NOT_FOUND', 'One or more exercises were not found');
   }
-  const routine = {
-    id: uuid(),
-    ...payload,
-    updatedAt: new Date().toISOString()
-  };
 
-  store.routines.push(routine);
-  res.status(201).json(routine);
-});
+  const routine = await prisma.workoutRoutine.create({
+    data: {
+      userId: payload.userId,
+      name: payload.name,
+      entries: {
+        create: payload.exercises.map((exercise, index) => ({
+          exerciseId: exercise.exerciseId,
+          repRange: exercise.repRange,
+          orderIndex: index
+        }))
+      }
+    },
+    include: { entries: true }
+  });
 
-workoutRouter.post('/sets', (req, res) => {
+  res.status(201).json({
+    id: routine.id,
+    userId: routine.userId,
+    name: routine.name,
+      exercises: routine.entries
+      .sort((a: (typeof routine.entries)[number], b: (typeof routine.entries)[number]) => a.orderIndex - b.orderIndex)
+      .map((entry: (typeof routine.entries)[number]) => ({
+      exerciseId: entry.exerciseId,
+      repRange: entry.repRange
+      })),
+    updatedAt: routine.updatedAt.toISOString()
+  });
+}));
+
+workoutRouter.post('/sets', asyncHandler(async (req, res) => {
   const payload = setLogSchema.parse(req.body);
-  const user = store.users.find((candidate) => candidate.id === payload.userId);
+  const user = await prisma.user.findUnique({ where: { id: payload.userId } });
   if (!user) {
     throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
   }
-  if (!store.exercises.some((candidate) => candidate.id === payload.exerciseId)) {
+  const exercise = await prisma.exercise.findUnique({ where: { id: payload.exerciseId } });
+  if (!exercise) {
     throw new AppError(404, 'EXERCISE_NOT_FOUND', 'Exercise not found');
   }
-  const setLog = {
-    id: uuid(),
-    ...payload,
-    updatedAt: new Date().toISOString()
-  };
 
-  store.setLogs.push(setLog);
-  res.status(201).json(setLog);
-});
+  const setLog = await prisma.workoutSetLog.create({
+    data: {
+      userId: payload.userId,
+      exerciseId: payload.exerciseId,
+      reps: payload.reps,
+      weightKg: payload.weightKg,
+      repRange: payload.repRange,
+      performedAt: new Date(payload.performedAt)
+    }
+  });
 
-workoutRouter.get('/progressive/:userId/:exerciseId', (req, res) => {
-  const logs = store.setLogs
-    .filter((candidate) => candidate.userId === req.params.userId && candidate.exerciseId === req.params.exerciseId)
-    .sort((a, b) => a.performedAt.localeCompare(b.performedAt));
+  res.status(201).json({ ...setLog, performedAt: setLog.performedAt.toISOString(), updatedAt: setLog.updatedAt.toISOString() });
+}));
 
-  const trend = logs.map((entry) => ({
-    performedAt: entry.performedAt,
-    // Epley estimate for trend tracking in MVP scaffold.
+workoutRouter.get('/progressive/:userId/:exerciseId', asyncHandler(async (req, res) => {
+  const logs = await prisma.workoutSetLog.findMany({
+    where: {
+      userId: req.params.userId,
+      exerciseId: req.params.exerciseId
+    },
+    orderBy: { performedAt: 'asc' }
+  });
+
+  const trend = logs.map((entry: (typeof logs)[number]) => ({
+    performedAt: entry.performedAt.toISOString(),
     estimated1RM: Number((entry.weightKg * (1 + entry.reps / 30)).toFixed(2))
   }));
 
-  res.status(200).json({ logs, trend });
-});
+  res.status(200).json({
+    logs: logs.map((entry: (typeof logs)[number]) => ({
+      ...entry,
+      performedAt: entry.performedAt.toISOString(),
+      updatedAt: entry.updatedAt.toISOString()
+    })),
+    trend
+  });
+}));

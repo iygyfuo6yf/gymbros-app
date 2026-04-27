@@ -1,4 +1,4 @@
-# GymBros MVP Scaffold
+# GymBros MVP Hardening Build
 
 GymBros is a mobile-first fitness MVP for intermediate lifters (ages 15–30), with a watch companion starter and a lightweight backend.
 
@@ -7,34 +7,31 @@ GymBros is a mobile-first fitness MVP for intermediate lifters (ages 15–30), w
 - **Monorepo (npm workspaces)**
   - `apps/mobile`: Expo + React Native + TypeScript app shell for user flows
   - `apps/api`: Express + TypeScript API with validation and conflict-safe sync strategy
-  - `apps/watch-companion`: watch integration starter package and shared snapshot contract
+  - `apps/watch-companion`: watch integration package and shared snapshot contract
+  - `apps/watch-native`: native watchOS starter files
 - **Data layer**
-  - `apps/api/prisma/schema.prisma` defines production DB schema for users, onboarding profiles, meals, workouts, gyms.
-  - In-memory store is used in the scaffold runtime for fast local MVP iteration.
+  - `apps/api/prisma/schema.prisma` + migrations power all mutable API routes with Prisma/SQLite.
 - **Auth/session**
-  - Social sign-in route scaffold for Google/Apple token handoff (`/auth/social`)
-  - JWT access + refresh issuance
+  - Social sign-in route with strict provider-token validation hooks (`/auth/social`)
+  - JWT access + persisted refresh-token rotation (`/auth/refresh`)
   - Secure session persistence on device via Expo SecureStore
 - **Offline/online sync**
-  - Local-first logging on mobile is scaffold-ready
-  - `/sync` endpoint applies **latest edit wins + safe merge** per record ID
+  - AsyncStorage durable queue + background sync worker in mobile app
+  - `/sync` endpoint supports conflict preview + user-directed resolution selection
 
 ## What is fully implemented vs scaffolded
 
-### Fully implemented (working in scaffold)
-- Backend API skeleton with routes for auth, onboarding/macros, meal AI estimate flow, workout logging/progression, calendar summary, sync conflict handling, recommended gyms.
-- Input validation via `zod` and global error handling.
-- Seeded exercise library, sample meals, and local/promoted gyms.
-- Backend tests for macro calculation, AI low-confidence behavior, and sync merge conflict behavior.
-- Mobile Expo screen scaffold covering all MVP feature areas in one flow-oriented UI.
-- Watch companion starter structure with shared workout snapshot contract.
-
-### Scaffolded (next integration step)
-- Real Google and Apple OAuth token verification against provider SDK/backend validation.
-- Real photo model inference pipeline (currently heuristic estimate from user hint).
-- Persistent DB writes via Prisma client (schema is ready; runtime uses in-memory store in this scaffold).
-- Production-grade offline queue persistence and background retry policies on mobile.
-- Native watch app implementation (starter contract only in this repo).
+### Implemented in this hardening pass
+- Real token validation flow contracts for Google + Apple in API (strict mode) and refresh token rotation backed by Prisma.
+- Prisma-wired API routes for auth, onboarding, nutrition, meals, workouts, calendar, sync, gyms, and watch snapshots.
+- Meal photo upload storage endpoint (`POST /meals/uploads`) and VLM-ready analysis integration (`NUTRITION_VLM_API_URL`) with fallback heuristics.
+- Mobile manual confirmation form for low-confidence AI meal estimates before save.
+- Durable offline queue persistence in mobile (AsyncStorage) and periodic background sync worker.
+- Conflict preview (`previewOnly`) and manual source selection (`resolutions`) in sync API + user-facing conflict controls in mobile.
+- Expanded exercise library + routine templates by goal (`strength`, `hypertrophy`).
+- Trend endpoint (`GET /calendar/trends/:userId`) and mobile trend summary for volume, 1RM, and nutrition adherence.
+- Native watch app starter (`apps/watch-native`) + live workout snapshot sync path from phone (`POST /watch/snapshot`).
+- CI workflow (`.github/workflows/ci.yml`) and deployment templates (`deploy/` + Dockerfile + deploy workflow template).
 
 ## Folder structure
 
@@ -56,6 +53,11 @@ apps/
       screens/
   watch-companion/
     src/index.ts
+  watch-native/
+    GymBrosWatch/
+  deploy/
+    docker-compose.prod.yml
+    render.yaml
 ```
 
 ## Prerequisites
@@ -73,6 +75,12 @@ See `/.env.example`.
 - `PORT`: API port (default 4000)
 - `JWT_SECRET`: signing secret for session tokens
 - `DATABASE_URL`: Prisma connection string (SQLite in scaffold)
+- `GOOGLE_CLIENT_ID`: expected Google audience in strict mode
+- `APPLE_SERVICE_ID`: expected Apple audience in strict mode
+- `SOCIAL_TOKEN_VALIDATION_MODE`: `strict` (default) or `test`
+- `NUTRITION_VLM_API_URL`: external nutrition model endpoint
+- `NUTRITION_VLM_API_KEY`: optional bearer key for model endpoint
+- `UPLOADS_DIR`: local folder for meal-photo uploads
 
 ### Mobile (`apps/mobile/.env.example`)
 - `EXPO_PUBLIC_API_URL`: backend base URL
@@ -157,15 +165,10 @@ npm run build
 - **API startup fails with env validation error**
   - Ensure `apps/api/.env` has valid values for `JWT_SECRET` (16+ chars) and `DATABASE_URL`.
 
-## Exact next 10 tasks
+## CI and deployment quick notes
 
-1. Replace social auth mock with real Google/Apple token validation and refresh token rotation.
-2. Wire Prisma client and migrations into all API routes (replace in-memory store).
-3. Add image upload storage and call a real nutrition model/VLM for photo analysis.
-4. Add manual confirmation UI for low-confidence AI estimates before saving meal logs.
-5. Implement robust offline queue persistence (SQLite/AsyncStorage) and background sync worker.
-6. Add user-facing conflict resolution preview for edge-case sync collisions.
-7. Expand exercise library and routine templates by training goal (strength/hypertrophy).
-8. Add trend charts for volume, estimated 1RM, and nutrition adherence.
-9. Create native watch app project and implement live workout sync from phone.
-10. Add CI pipeline (lint, typecheck, tests) and production deployment templates.
+- CI: `.github/workflows/ci.yml` runs lint, tests, typecheck, and build on push/PR.
+- Deployment templates:
+  - `deploy/docker-compose.prod.yml`
+  - `deploy/render.yaml`
+  - `.github/workflows/deploy-template.yml`

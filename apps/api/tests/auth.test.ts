@@ -4,16 +4,16 @@ import { app } from '../src/app.js';
 import { resetStore } from './test-utils.js';
 
 describe('auth social sign-in', () => {
-  beforeEach(() => {
-    resetStore();
+  beforeEach(async () => {
+    await resetStore();
   });
 
-  it('creates a session for valid Google sign-in', async () => {
+  it('creates a session for valid Google sign-in and rotates refresh token', async () => {
     const response = await request(app)
       .post('/auth/social')
       .send({
         provider: 'google',
-        idToken: 'google-dev-valid-token',
+        idToken: 'google-test-token-valid-signin',
         email: 'Bro@Example.com',
         name: ' Gym Bro '
       })
@@ -23,6 +23,13 @@ describe('auth social sign-in', () => {
     expect(response.body.user.name).toBe('Gym Bro');
     expect(typeof response.body.session.accessToken).toBe('string');
     expect(typeof response.body.session.refreshToken).toBe('string');
+
+    const rotated = await request(app)
+      .post('/auth/refresh')
+      .send({ refreshToken: response.body.session.refreshToken })
+      .expect(200);
+
+    expect(rotated.body.session.refreshToken).not.toBe(response.body.session.refreshToken);
   });
 
   it('returns validation error for invalid payload', async () => {

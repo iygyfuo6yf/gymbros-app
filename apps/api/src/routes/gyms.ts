@@ -1,13 +1,17 @@
 import { Router } from 'express';
-import { store } from '../lib/store.js';
+import { prisma } from '../lib/prisma.js';
+import { asyncHandler } from '../lib/asyncHandler.js';
 
 export const gymsRouter = Router();
 
-gymsRouter.get('/recommended', (_req, res) => {
-  const gyms = store.gyms
-    .slice()
-    .sort((a, b) => Number(b.promoted) - Number(a.promoted) || b.rating - a.rating)
-    .slice(0, 5);
+gymsRouter.get('/recommended', asyncHandler(async (_req, res) => {
+  const gyms = await prisma.gym.findMany({
+    orderBy: [
+      { promoted: 'desc' },
+      { rating: 'desc' }
+    ],
+    take: 5
+  });
 
   res.status(200).json(gyms);
-});
+}));

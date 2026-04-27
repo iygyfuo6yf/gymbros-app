@@ -44,6 +44,8 @@ export interface MealLog {
   fatsGrams: number;
   confidence: number;
   source: 'ai' | 'manual';
+  confirmedByUser: boolean;
+  photoPath?: string;
   consumedAt: string;
   updatedAt: string;
 }
@@ -53,6 +55,7 @@ export interface Exercise {
   name: string;
   muscleGroup: string;
   equipment: string;
+  goal: 'general' | 'strength' | 'hypertrophy';
 }
 
 export interface RoutineExercise {
@@ -85,6 +88,13 @@ export interface Gym {
   city: string;
   promoted: boolean;
   rating: number;
+}
+
+export interface RoutineTemplate {
+  id: string;
+  goal: 'strength' | 'hypertrophy';
+  name: string;
+  exercises: RoutineExercise[];
 }
 
 export interface SyncPayload {
