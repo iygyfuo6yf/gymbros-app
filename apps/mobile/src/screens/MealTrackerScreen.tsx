@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { apiFetch } from '../api/client';
+import { Button, Card, Input, StatusMessage } from '../components';
 import { useAuth } from '../context/AuthContext';
-import type { MealEstimateResponse } from '../types';
 import { enqueueOfflineAction } from '../sync/offlineQueue';
+import { colors, spacing, typography } from '../theme';
+import type { MealEstimateResponse } from '../types';
 
 interface EditableMeal {
   mealName: string;
@@ -13,12 +15,19 @@ interface EditableMeal {
   fatsGrams: string;
 }
 
-export function MealTrackerScreen() {
+interface MealTrackerScreenProps {
+  onSuccess?: () => void;
+}
+
+export function MealTrackerScreen({ onSuccess }: MealTrackerScreenProps) {
   const { userId } = useAuth();
   const [photoHint, setPhotoHint] = useState('chicken rice');
   const [result, setResult] = useState('');
+  const [resultVariant, setResultVariant] = useState<'success' | 'info' | 'warning' | 'error'>('info');
   const [pendingMeal, setPendingMeal] = useState<MealEstimateResponse | null>(null);
   const [editableMeal, setEditableMeal] = useState<EditableMeal | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   const syncMealLog = async (payload: Record<string, unknown>) => {
     try {
@@ -26,99 +35,232 @@ export function MealTrackerScreen() {
         method: 'POST',
         body: JSON.stringify(payload)
       });
-      setResult(`Logged ${payload.mealName as string}`);
+      setResult(`✓ Meal logged: ${payload.mealName as string}`);
+      setResultVariant('success');
+      onSuccess?.();
     } catch {
       const queueSize = await enqueueOfflineAction({ type: 'MEAL_LOG', payload });
-      setResult(`Offline: meal queued for sync (${queueSize} pending).`);
+      setResult(`You're offline — meal queued for sync (${queueSize} pending).`);
+      setResultVariant('warning');
     }
   };
 
   const analyze = async () => {
     if (!userId) return;
+    if (loading) return;
 
-    const upload = await apiFetch<{ id: string; path: string }>('/meals/uploads', {
-      method: 'POST',
-      body: JSON.stringify({
-        userId,
-        fileName: 'meal.jpg',
-        mimeType: 'image/jpeg',
-        base64Data: 'aW1hZ2UtYnl0ZXMtaW1hZ2UtYnl0ZXMtaW1hZ2UtYnl0ZXMtaW1hZ2UtYnl0ZXM='
-      })
-    });
+    try {
+      setResult('');
+      setLoading(true);
 
-    const estimate = await apiFetch<MealEstimateResponse>('/meals/analyze', {
-      method: 'POST',
-      body: JSON.stringify({ photoHint, photoUploadId: upload.id })
-    });
-
-    if (estimate.needsConfirmation) {
-      setPendingMeal(estimate);
-      setEditableMeal({
-        mealName: estimate.mealName,
-        calories: `${estimate.calories}`,
-        proteinGrams: `${estimate.proteinGrams}`,
-        carbsGrams: `${estimate.carbsGrams}`,
-        fatsGrams: `${estimate.fatsGrams}`
+      const upload = await apiFetch<{ id: string; path: string }>('/meals/uploads', {
+        method: 'POST',
+        body: JSON.stringify({
+          userId,
+          fileName: 'meal.jpg',
+          mimeType: 'image/jpeg',
+          base64Data: 'aW1hZ2UtYnl0ZXMtaW1hZ2UtYnl0ZXMtaW1hZ2UtYnl0ZXMtaW1hZ2UtYnl0ZXM='
+        })
       });
-      setResult(`Low confidence (${Math.round(estimate.confidence * 100)}%). Please review before saving.`);
-      return;
-    }
 
-    await syncMealLog({
-      userId,
-      mealName: estimate.mealName,
-      calories: estimate.calories,
-      proteinGrams: estimate.proteinGrams,
-      carbsGrams: estimate.carbsGrams,
-      fatsGrams: estimate.fatsGrams,
-      confidence: estimate.confidence,
-      source: 'ai',
-      confirmedByUser: false,
-      photoPath: estimate.photoPath,
-      consumedAt: new Date().toISOString()
-    });
+      const estimate = await apiFetch<MealEstimateResponse>('/meals/analyze', {
+        method: 'POST',
+        body: JSON.stringify({ photoHint, photoUploadId: upload.id })
+      });
+
+      if (estimate.needsConfirmation) {
+        setPendingMeal(estimate);
+        setEditableMeal({
+          mealName: estimate.mealName,
+          calories: `${estimate.calories}`,
+          proteinGrams: `${estimate.proteinGrams}`,
+          carbsGrams: `${estimate.carbsGrams}`,
+          fatsGrams: `${estimate.fatsGrams}`
+        });
+        setResult(`Low confidence (${Math.round(estimate.confidence * 100)}%). Please review the details before saving.`);
+        setResultVariant('warning');
+        return;
+      }
+
+      await syncMealLog({
+        userId,
+        mealName: estimate.mealName,
+        calories: estimate.calories,
+        proteinGrams: estimate.proteinGrams,
+        carbsGrams: estimate.carbsGrams,
+        fatsGrams: estimate.fatsGrams,
+        confidence: estimate.confidence,
+        source: 'ai',
+        confirmedByUser: false,
+        photoPath: estimate.photoPath,
+        consumedAt: new Date().toISOString()
+      });
+    } catch (err) {
+      setResult(err instanceof Error ? err.message : 'Could not analyze the meal. Please try again.');
+      setResultVariant('error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const confirmMeal = async () => {
     if (!userId || !pendingMeal || !editableMeal) return;
+    if (confirmLoading) return;
 
-    await syncMealLog({
-      userId,
-      mealName: editableMeal.mealName,
-      calories: Number(editableMeal.calories),
-      proteinGrams: Number(editableMeal.proteinGrams),
-      carbsGrams: Number(editableMeal.carbsGrams),
-      fatsGrams: Number(editableMeal.fatsGrams),
-      confidence: pendingMeal.confidence,
-      source: 'ai',
-      confirmedByUser: true,
-      photoPath: pendingMeal.photoPath,
-      consumedAt: new Date().toISOString()
-    });
+    try {
+      setConfirmLoading(true);
+      await syncMealLog({
+        userId,
+        mealName: editableMeal.mealName,
+        calories: Number(editableMeal.calories),
+        proteinGrams: Number(editableMeal.proteinGrams),
+        carbsGrams: Number(editableMeal.carbsGrams),
+        fatsGrams: Number(editableMeal.fatsGrams),
+        confidence: pendingMeal.confidence,
+        source: 'ai',
+        confirmedByUser: true,
+        photoPath: pendingMeal.photoPath,
+        consumedAt: new Date().toISOString()
+      });
 
-    setPendingMeal(null);
-    setEditableMeal(null);
+      setPendingMeal(null);
+      setEditableMeal(null);
+    } finally {
+      setConfirmLoading(false);
+    }
   };
 
   return (
-    <View style={{ gap: 8, marginBottom: 20 }}>
-      <Text style={{ color: 'white', fontSize: 18, fontWeight: '600' }}>3) AI Calorie Tracker</Text>
-      <TextInput value={photoHint} onChangeText={setPhotoHint} style={{ backgroundColor: '#1f2937', color: 'white', padding: 10 }} placeholder="Meal photo hint" />
-      <Pressable onPress={analyze} style={{ backgroundColor: '#7c3aed', padding: 12 }}><Text style={{ color: 'white' }}>Analyze Meal Photo</Text></Pressable>
+    <View style={styles.container}>
+      <Text style={styles.title}>Track a Meal</Text>
+      <Text style={styles.subtitle}>Describe or hint at your meal and we'll estimate the macros.</Text>
+
+      <Input
+        label="Meal description"
+        value={photoHint}
+        onChangeText={setPhotoHint}
+        placeholder="e.g. chicken rice bowl"
+        helperText="Be as specific as possible for a better estimate."
+      />
+
+      {!!result && <StatusMessage variant={resultVariant} message={result} />}
 
       {editableMeal ? (
-        <View style={{ backgroundColor: '#111827', padding: 10, gap: 6 }}>
-          <Text style={{ color: '#ddd6fe', fontWeight: '600' }}>Manual confirmation required</Text>
-          <TextInput value={editableMeal.mealName} onChangeText={(value) => setEditableMeal({ ...editableMeal, mealName: value })} style={{ backgroundColor: '#1f2937', color: 'white', padding: 8 }} />
-          <TextInput value={editableMeal.calories} onChangeText={(value) => setEditableMeal({ ...editableMeal, calories: value })} keyboardType="numeric" style={{ backgroundColor: '#1f2937', color: 'white', padding: 8 }} />
-          <TextInput value={editableMeal.proteinGrams} onChangeText={(value) => setEditableMeal({ ...editableMeal, proteinGrams: value })} keyboardType="numeric" style={{ backgroundColor: '#1f2937', color: 'white', padding: 8 }} />
-          <TextInput value={editableMeal.carbsGrams} onChangeText={(value) => setEditableMeal({ ...editableMeal, carbsGrams: value })} keyboardType="numeric" style={{ backgroundColor: '#1f2937', color: 'white', padding: 8 }} />
-          <TextInput value={editableMeal.fatsGrams} onChangeText={(value) => setEditableMeal({ ...editableMeal, fatsGrams: value })} keyboardType="numeric" style={{ backgroundColor: '#1f2937', color: 'white', padding: 8 }} />
-          <Pressable onPress={confirmMeal} style={{ backgroundColor: '#22c55e', padding: 10 }}><Text style={{ color: '#052e16' }}>Confirm + Save Meal</Text></Pressable>
-        </View>
-      ) : null}
+        <Card variant="default" padding="md">
+          <Text style={styles.confirmTitle}>Review & confirm meal</Text>
+          <Text style={styles.confirmSubtitle}>Adjust any values before saving.</Text>
+          <View style={styles.confirmForm}>
+            <Input
+              label="Meal name"
+              value={editableMeal.mealName}
+              onChangeText={(value) => setEditableMeal({ ...editableMeal, mealName: value })}
+            />
+            <View style={styles.macroRow}>
+              <View style={styles.macroItem}>
+                <Input
+                  label="Calories"
+                  value={editableMeal.calories}
+                  onChangeText={(value) => setEditableMeal({ ...editableMeal, calories: value })}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={styles.macroItem}>
+                <Input
+                  label="Protein (g)"
+                  value={editableMeal.proteinGrams}
+                  onChangeText={(value) => setEditableMeal({ ...editableMeal, proteinGrams: value })}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+            <View style={styles.macroRow}>
+              <View style={styles.macroItem}>
+                <Input
+                  label="Carbs (g)"
+                  value={editableMeal.carbsGrams}
+                  onChangeText={(value) => setEditableMeal({ ...editableMeal, carbsGrams: value })}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={styles.macroItem}>
+                <Input
+                  label="Fats (g)"
+                  value={editableMeal.fatsGrams}
+                  onChangeText={(value) => setEditableMeal({ ...editableMeal, fatsGrams: value })}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+            <Button
+              label={confirmLoading ? 'Saving…' : 'Confirm & Save Meal'}
+              variant="primary"
+              loading={confirmLoading}
+              onPress={confirmMeal}
+            />
+            <Button
+              label="Discard"
+              variant="ghost"
+              onPress={() => { setPendingMeal(null); setEditableMeal(null); setResult(''); }}
+            />
+          </View>
+        </Card>
+      ) : (
+        <Button
+          label={loading ? 'Analyzing…' : 'Analyze Meal'}
+          variant="secondary"
+          loading={loading}
+          onPress={analyze}
+          disabled={!userId}
+          accessibilityLabel="Analyze meal macros"
+        />
+      )}
 
-      {!!result && <Text style={{ color: '#ddd6fe' }}>{result}</Text>}
+      {!userId && (
+        <Text style={styles.hint}>Sign in to start tracking meals.</Text>
+      )}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    gap: spacing['4'],
+    marginBottom: spacing['5'],
+  },
+  title: {
+    color: colors.text,
+    fontSize: typography.size['2xl'],
+    fontWeight: typography.weight.bold,
+  },
+  subtitle: {
+    color: colors.textMuted,
+    fontSize: typography.size.md,
+    marginTop: -spacing['2'],
+  },
+  confirmTitle: {
+    color: colors.text,
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.semibold,
+    marginBottom: spacing['1'],
+  },
+  confirmSubtitle: {
+    color: colors.textMuted,
+    fontSize: typography.size.sm,
+    marginBottom: spacing['3'],
+  },
+  confirmForm: {
+    gap: spacing['3'],
+  },
+  macroRow: {
+    flexDirection: 'row',
+    gap: spacing['2'],
+  },
+  macroItem: {
+    flex: 1,
+  },
+  hint: {
+    fontSize: typography.size.sm,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
+});

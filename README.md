@@ -2,6 +2,57 @@
 
 GymBros is a mobile-first fitness MVP for intermediate lifters (ages 15–30), with a watch companion starter and a lightweight backend.
 
+## UI flow and design system
+
+### Guided step-by-step user journey
+
+The mobile app now surfaces a clear, linear onboarding flow with a visible progress indicator in the header:
+
+```
+Sign In → Goals → Meals → Workout → Progress
+```
+
+Each screen advances automatically when its primary action completes (e.g. sign-in success advances to Goals; saving targets advances to Meals). A **Skip →** button lets users jump ahead without completing the current step. A **← Back** button and a header back chevron allow backwards navigation. A 🏋️ gym browser tab is accessible from any step via the header icon.
+
+### Design token system (`apps/mobile/src/theme/index.ts`)
+
+All visual primitives are defined as named tokens:
+
+| Category | Tokens |
+|---|---|
+| **Colors** | `bg`, `surface`, `surface2`, `border`, `primary`/`primaryDark`/`primaryLight`, `secondary`, `text`/`textSecondary`/`textMuted`/`textDisabled`/`textInverse`, semantic: `success`/`warning`/`error`/`info` with matching `*Bg` and `*Text` variants |
+| **Typography** | `size`: xs (11) → sm (13) → md (15) → lg (17) → xl (20) → 2xl (24) → 3xl (28) → 4xl (34); `weight`: regular/medium/semibold/bold/extrabold; `lineHeight`: tight/normal/relaxed |
+| **Spacing** | 0, 1 (4px), 2 (8px), 3 (12px), 4 (16px), 5 (20px), 6 (24px), 8 (32px), 10 (40px), 12 (48px) |
+| **Radius** | sm (4), md (8), lg (12), xl (16), full (9999) |
+| **Shadows** | sm / md / lg (elevation + cross-platform shadow props) |
+| **Tap target** | `minTapTarget = 44` (WCAG minimum) |
+
+### Reusable UI components (`apps/mobile/src/components/`)
+
+| Component | Purpose |
+|---|---|
+| `Button` | Primary / secondary / danger / ghost / outline variants; loading + disabled states; accessibility role/label/state wired |
+| `Card` | Surface container with default / elevated / flat variants and sm/md/lg/none padding |
+| `Input` | Labeled `TextInput` with inline validation, helper text, error text, and accessibility hints |
+| `ProgressSteps` | Horizontal step progress bar with filled dots for completed steps, active ring for current step, and a progress bar fill |
+| `StatusMessage` | Inline success / error / warning / info feedback with semantic colors and `accessibilityLiveRegion` |
+
+### Accessibility improvements
+
+- All interactive elements have `accessible`, `accessibilityRole`, and `accessibilityLabel` props.
+- Minimum tap target size (44 px) enforced on all buttons.
+- `accessibilityState` (disabled, busy) forwarded on Button.
+- StatusMessage uses `accessibilityRole="alert"` and `accessibilityLiveRegion="polite"`.
+- Input errors use `accessibilityLiveRegion="polite"` for assistive technology announcements.
+- High-contrast semantic colors used throughout (primary green on dark backgrounds).
+
+### Forms UX
+
+- Inline validation on blur for Onboarding fields (age, weight, height) with friendly error messages.
+- All submit buttons show a loading spinner and prevent duplicate submits via a `loading` guard.
+- Disabled states (e.g. "Sign in first") explained with helper text.
+- Confirm-meal flow in MealTrackerScreen uses labeled inputs and a Discard option.
+
 ## Architecture summary
 
 - **Monorepo (npm workspaces)**
