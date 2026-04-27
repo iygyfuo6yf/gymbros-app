@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import type { RoutineEntry, RoutineTemplate, WorkoutSetLog } from '@prisma/client';
 import { AppError } from '../lib/apiError.js';
 import { isoDateTime, sanitizedId, sanitizedString } from '../lib/validation.js';
 import { prisma } from '../lib/prisma.js';
@@ -52,7 +51,7 @@ workoutRouter.get('/templates', asyncHandler(async (req, res) => {
     orderBy: { name: 'asc' }
   });
 
-  res.status(200).json(templates.map((template: RoutineTemplate) => ({
+  res.status(200).json(templates.map((template: (typeof templates)[number]) => ({
     id: template.id,
     goal: template.goal,
     name: template.name,
@@ -92,9 +91,9 @@ workoutRouter.post('/routines', asyncHandler(async (req, res) => {
     id: routine.id,
     userId: routine.userId,
     name: routine.name,
-    exercises: routine.entries
-      .sort((a: RoutineEntry, b: RoutineEntry) => a.orderIndex - b.orderIndex)
-      .map((entry: RoutineEntry) => ({
+      exercises: routine.entries
+      .sort((a: (typeof routine.entries)[number], b: (typeof routine.entries)[number]) => a.orderIndex - b.orderIndex)
+      .map((entry: (typeof routine.entries)[number]) => ({
       exerciseId: entry.exerciseId,
       repRange: entry.repRange
       })),
@@ -136,13 +135,13 @@ workoutRouter.get('/progressive/:userId/:exerciseId', asyncHandler(async (req, r
     orderBy: { performedAt: 'asc' }
   });
 
-  const trend = logs.map((entry: WorkoutSetLog) => ({
+  const trend = logs.map((entry: (typeof logs)[number]) => ({
     performedAt: entry.performedAt.toISOString(),
     estimated1RM: Number((entry.weightKg * (1 + entry.reps / 30)).toFixed(2))
   }));
 
   res.status(200).json({
-    logs: logs.map((entry: WorkoutSetLog) => ({
+    logs: logs.map((entry: (typeof logs)[number]) => ({
       ...entry,
       performedAt: entry.performedAt.toISOString(),
       updatedAt: entry.updatedAt.toISOString()

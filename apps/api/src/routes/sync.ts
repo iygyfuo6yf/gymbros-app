@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import type { MealLog, Prisma, WorkoutSetLog } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { AppError } from '../lib/apiError.js';
 import { isoDateTime, sanitizedId, sanitizedString } from '../lib/validation.js';
 import { prisma } from '../lib/prisma.js';
@@ -85,7 +85,7 @@ syncRouter.post('/', asyncHandler(async (req, res) => {
     prisma.workoutSetLog.findMany({ where: { userId: payload.userId } })
   ]);
 
-  const serverMeals = serverMealLogs.map((item: MealLog) => ({
+  const serverMeals = serverMealLogs.map((item: (typeof serverMealLogs)[number]) => ({
     id: item.id,
     userId: item.userId,
     mealName: item.mealName,
@@ -101,7 +101,7 @@ syncRouter.post('/', asyncHandler(async (req, res) => {
     updatedAt: item.updatedAt.toISOString()
   }));
 
-  const serverSets = serverSetLogs.map((item: WorkoutSetLog) => ({
+  const serverSets = serverSetLogs.map((item: (typeof serverSetLogs)[number]) => ({
     id: item.id,
     userId: item.userId,
     exerciseId: item.exerciseId,
