@@ -147,7 +147,7 @@ export function MealTrackerScreen({ onSuccess }: MealTrackerScreenProps) {
 
       {editableMeal ? (
         <Card variant="default" padding="md">
-          <Text style={styles.confirmTitle}>Review &amp; confirm meal</Text>
+          <Text style={styles.confirmTitle}>Review & confirm meal</Text>
           <Text style={styles.confirmSubtitle}>Adjust any values before saving.</Text>
           <View style={styles.confirmForm}>
             <Input

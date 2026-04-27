@@ -69,7 +69,7 @@ export function Button({
             size="small"
             color={variant === 'primary' || variant === 'danger' ? colors.textInverse : colors.text}
           />
-          <Text style={[...textStyle, styles.loadingLabel]}>{label}</Text>
+          <Text style={[textStyle, styles.loadingLabel]}>{label}</Text>
         </View>
       ) : (
         <Text style={textStyle}>{label}</Text>
