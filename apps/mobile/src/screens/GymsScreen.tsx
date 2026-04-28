@@ -48,8 +48,10 @@ export function GymsScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // `loading` is intentionally excluded from deps: the Button disables re-taps while
+  // in-flight, so stale-closure reads of `loading` here only affect the programmatic
+  // call from useEffect (which only fires once on mount).
   const load = useCallback(async () => {
-    if (loading) return;
     try {
       setError('');
       setLoading(true);
