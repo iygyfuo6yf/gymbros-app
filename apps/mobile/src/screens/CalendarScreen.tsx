@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { apiFetch } from '../api/client';
-import { Button, Card, StatusMessage } from '../components';
+import { Button, Card, SectionHeader, StatusMessage } from '../components';
 import { useAuth } from '../context/AuthContext';
 import { enqueueOfflineAction } from '../sync/offlineQueue';
-import { colors, spacing, typography } from '../theme';
+import { colors, radius, spacing, typography } from '../theme';
 
 interface TrendPoint {
   date: string;
@@ -13,18 +13,70 @@ interface TrendPoint {
   adherencePct: number | null;
 }
 
+function getAdherenceColor(adherence: number): string {
+  if (adherence >= 80) return colors.success;
+  if (adherence >= 50) return colors.warning;
+  return colors.error;
+}
+
+interface StatCardProps {
+  label: string;
+  value: string;
+  icon: string;
+  accent?: string;
+}
+
+function StatCard({ label, value, icon, accent = colors.primary }: StatCardProps) {
+  return (
+    <View style={[statCardStyles.card, { borderTopColor: accent }]}>
+      <Text style={statCardStyles.icon}>{icon}</Text>
+      <Text style={[statCardStyles.value, { color: accent }]}>{value}</Text>
+      <Text style={statCardStyles.label}>{label}</Text>
+    </View>
+  );
+}
+
+const statCardStyles = StyleSheet.create({
+  card: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderTopWidth: 3,
+    padding: spacing['3'],
+    alignItems: 'center',
+    gap: spacing['1'],
+  },
+  icon: {
+    fontSize: 20,
+  },
+  value: {
+    fontSize: typography.size['2xl'],
+    fontWeight: typography.weight.extrabold,
+  },
+  label: {
+    fontSize: typography.size.xs,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
+});
+
 interface CalendarScreenProps {
   onSuccess?: () => void;
 }
 
 export function CalendarScreen({ onSuccess }: CalendarScreenProps) {
   const { userId } = useAuth();
-  const [summary, setSummary] = useState('');
-  const [trendSummary, setTrendSummary] = useState('');
+  const [streak, setStreak] = useState<number | null>(null);
+  const [totalWorkouts, setTotalWorkouts] = useState<number | null>(null);
+  const [totalMeals, setTotalMeals] = useState<number | null>(null);
+  const [trendPoint, setTrendPoint] = useState<TrendPoint | null>(null);
   const [conflicts, setConflicts] = useState<Array<{ id: string }>>([]);
   const [loadingProgress, setLoadingProgress] = useState(false);
   const [loadingConflicts, setLoadingConflicts] = useState(false);
   const [error, setError] = useState('');
+  const [syncMessage, setSyncMessage] = useState('');
 
   const loadSummary = async () => {
     if (!userId || loadingProgress) return;
@@ -33,18 +85,13 @@ export function CalendarScreen({ onSuccess }: CalendarScreenProps) {
       setError('');
       setLoadingProgress(true);
       const response = await apiFetch<{ streak: number; totalWorkouts: number; totalMealsLogged: number }>(`/calendar/summary/${userId}`);
-      setSummary(`🔥 ${response.streak}-day streak · ${response.totalWorkouts} workouts · ${response.totalMealsLogged} meals logged`);
+      setStreak(response.streak);
+      setTotalWorkouts(response.totalWorkouts);
+      setTotalMeals(response.totalMealsLogged);
 
       const trend = await apiFetch<{ points: TrendPoint[] }>(`/calendar/trends/${userId}`);
       const last = trend.points.at(-1);
-      if (!last) {
-        setTrendSummary('No trend data yet — log a workout to get started!');
-        return;
-      }
-
-      const adherence = last.adherencePct ?? 0;
-      const bar = '█'.repeat(Math.max(1, Math.min(10, Math.round(adherence / 10))));
-      setTrendSummary(`Volume ${last.volumeKg} kg · 1RM ${last.estimated1RM} kg · Nutrition ${adherence}%  ${bar}`);
+      setTrendPoint(last ?? null);
       onSuccess?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load progress. Please try again.');
@@ -90,34 +137,84 @@ export function CalendarScreen({ onSuccess }: CalendarScreenProps) {
       })
     });
 
-    setSummary(`Resolved ${conflicts.length} conflict(s) using ${source === 'client' ? 'your phone' : 'server'} version`);
+    setSyncMessage(`Resolved ${conflicts.length} conflict(s) using ${source === 'client' ? 'your phone' : 'server'} version`);
     setConflicts([]);
   };
 
+  const hasData = streak !== null || totalWorkouts !== null;
+  const adherence = trendPoint?.adherencePct ?? 0;
+  const adherenceBarWidth = Math.max(2, Math.min(100, adherence));
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Your Progress</Text>
-      <Text style={styles.subtitle}>Track your streak, trends, and overall consistency.</Text>
+      <SectionHeader
+        title="Your Progress"
+        subtitle="Streak, volume trends, and nutrition consistency."
+      />
 
       {!!error && <StatusMessage variant="error" message={error} />}
 
-      {!summary && !trendSummary && !error && (
+      {/* ── Empty state ── */}
+      {!hasData && !error && (
         <Card variant="flat" padding="md">
-          <Text style={styles.emptyText}>No data loaded yet.</Text>
-          <Text style={styles.emptySubtext}>Tap the button below to load your progress summary.</Text>
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>📊</Text>
+            <Text style={styles.emptyText}>No data loaded yet</Text>
+            <Text style={styles.emptySubtext}>Tap "Refresh Progress" below to see your stats.</Text>
+          </View>
         </Card>
       )}
 
-      {!!summary && (
+      {/* ── Stat cards row ── */}
+      {hasData && (
+        <View style={styles.statRow}>
+          <StatCard label="Day streak" value={`${streak ?? 0}`} icon="🔥" accent={colors.warning} />
+          <StatCard label="Workouts" value={`${totalWorkouts ?? 0}`} icon="🏋️" accent={colors.primary} />
+          <StatCard label="Meals logged" value={`${totalMeals ?? 0}`} icon="🥗" accent={colors.secondary} />
+        </View>
+      )}
+
+      {/* ── Trend snapshot ── */}
+      {trendPoint && (
         <Card variant="default" padding="md">
-          <Text style={styles.statText}>{summary}</Text>
-        </Card>
-      )}
+          <Text style={styles.trendTitle}>Latest trend snapshot</Text>
+          <View style={styles.trendMetrics}>
+            <View style={styles.trendMetric}>
+              <Text style={styles.trendMetricValue}>{trendPoint.volumeKg} kg</Text>
+              <Text style={styles.trendMetricLabel}>Volume</Text>
+            </View>
+            <View style={styles.trendDivider} />
+            <View style={styles.trendMetric}>
+              <Text style={styles.trendMetricValue}>{trendPoint.estimated1RM} kg</Text>
+              <Text style={styles.trendMetricLabel}>Est. 1RM</Text>
+            </View>
+            <View style={styles.trendDivider} />
+            <View style={styles.trendMetric}>
+              <Text style={[styles.trendMetricValue, { color: getAdherenceColor(adherence) }]}>
+                {adherence}%
+              </Text>
+              <Text style={styles.trendMetricLabel}>Nutrition</Text>
+            </View>
+          </View>
 
-      {!!trendSummary && (
-        <Card variant="flat" padding="md">
-          <Text style={styles.trendLabel}>Latest trend</Text>
-          <Text style={styles.trendText}>{trendSummary}</Text>
+          {/* Adherence bar */}
+          <View style={styles.adherenceSection}>
+            <View style={styles.adherenceLabelRow}>
+              <Text style={styles.adherenceLabel}>Nutrition adherence</Text>
+              <Text style={styles.adherencePct}>{adherence}%</Text>
+            </View>
+            <View style={styles.adherenceTrack}>
+              <View
+                style={[
+                  styles.adherenceFill,
+                  {
+                    width: `${adherenceBarWidth}%`,
+                    backgroundColor: getAdherenceColor(adherence),
+                  },
+                ]}
+              />
+            </View>
+          </View>
         </Card>
       )}
 
@@ -133,6 +230,9 @@ export function CalendarScreen({ onSuccess }: CalendarScreenProps) {
       <View style={styles.divider} />
 
       <Text style={styles.sectionTitle}>Data sync</Text>
+
+      {!!syncMessage && <StatusMessage variant="success" message={syncMessage} />}
+
       <Button
         label={loadingConflicts ? 'Checking…' : 'Check Sync Conflicts'}
         variant="outline"
@@ -174,42 +274,86 @@ const styles = StyleSheet.create({
     gap: spacing['4'],
     marginBottom: spacing['5'],
   },
-  title: {
-    color: colors.text,
-    fontSize: typography.size['2xl'],
-    fontWeight: typography.weight.bold,
+  emptyState: {
+    alignItems: 'center',
+    gap: spacing['2'],
+    paddingVertical: spacing['4'],
   },
-  subtitle: {
-    color: colors.textMuted,
-    fontSize: typography.size.md,
-    marginTop: -spacing['2'],
+  emptyIcon: {
+    fontSize: 36,
   },
   emptyText: {
     color: colors.textSecondary,
     fontSize: typography.size.md,
-    fontWeight: typography.weight.medium,
-    textAlign: 'center',
-    marginBottom: spacing['1'],
+    fontWeight: typography.weight.semibold,
   },
   emptySubtext: {
     color: colors.textMuted,
     fontSize: typography.size.sm,
     textAlign: 'center',
   },
-  statText: {
-    color: colors.text,
-    fontSize: typography.size.md,
-    fontWeight: typography.weight.medium,
+  statRow: {
+    flexDirection: 'row',
+    gap: spacing['2'],
   },
-  trendLabel: {
-    color: colors.textMuted,
+  trendTitle: {
+    color: colors.textSecondary,
     fontSize: typography.size.sm,
-    marginBottom: spacing['1'],
+    fontWeight: typography.weight.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: spacing['3'],
   },
-  trendText: {
-    color: colors.infoText,
-    fontSize: typography.size.md,
-    fontFamily: 'monospace',
+  trendMetrics: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing['4'],
+  },
+  trendMetric: {
+    flex: 1,
+    alignItems: 'center',
+    gap: spacing['1'],
+  },
+  trendMetricValue: {
+    color: colors.text,
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.bold,
+  },
+  trendMetricLabel: {
+    color: colors.textMuted,
+    fontSize: typography.size.xs,
+  },
+  trendDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: colors.border,
+  },
+  adherenceSection: {
+    gap: spacing['2'],
+  },
+  adherenceLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  adherenceLabel: {
+    color: colors.textMuted,
+    fontSize: typography.size.xs,
+  },
+  adherencePct: {
+    color: colors.textSecondary,
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.semibold,
+  },
+  adherenceTrack: {
+    height: 8,
+    backgroundColor: colors.surface2,
+    borderRadius: radius.full,
+    overflow: 'hidden',
+  },
+  adherenceFill: {
+    height: '100%',
+    borderRadius: radius.full,
   },
   divider: {
     height: 1,
@@ -233,3 +377,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+

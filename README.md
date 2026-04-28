@@ -2,11 +2,61 @@
 
 GymBros is a mobile-first fitness MVP for intermediate lifters (ages 15–30), with a watch companion starter and a lightweight backend.
 
+## UX rationale and design decisions
+
+### Inspiration patterns
+
+This UI/UX enhancement pass drew inspiration from best-in-class fitness apps while remaining fully original:
+
+| Pattern source | What we borrowed (concept only) | Where applied |
+|---|---|---|
+| **Nike Training Club** | Hero brand area at sign-in; motivational tagline; value-proposition summary | `AuthScreen` hero section |
+| **Strong app** | Stepper controls for reps/weight (+/− buttons); per-set history rows inline with the logger | `WorkoutScreen` set params + set history |
+| **Fitbod** | Quick-select exercise chips above the custom input; colour-coded active state | `WorkoutScreen` quick exercise picker |
+| **MyFitnessPal** | Quick-add meal shortcuts; macro preview pills before confirmation | `MealTrackerScreen` quick add + confirm flow |
+| **Whoop / Athlytic** | Stat cards with accent-coloured top borders; a dedicated adherence progress bar | `CalendarScreen` stat cards + adherence bar |
+
+### Screen-by-screen rationale
+
+#### Sign In (`AuthScreen`)
+- **Before**: plain title + form. **After**: logo mark, 3xl brand wordmark, tagline, feature pills.
+- **Why**: first screen sets tone; brand confidence reduces drop-off before any interaction.
+
+#### Goals / Onboarding (`OnboardingScreen`)
+- **Before**: 3 numeric fields only. **After**: goal-type 2×2 grid (Build Strength / Gain Muscle / Lose Fat / Stay Fit) + activity-level radio list + body stats.
+- **Why**: choice architecture — showing preset options (inspired by apps like Caliber) reduces blank-page anxiety and makes the goal feel personalised immediately.
+
+#### Workout Logging (`WorkoutScreen`)
+- **Before**: one text input + fixed chip display + one button. **After**: quick exercise shortcut chips → custom ID fallback; `−/+` stepper for reps and weight; running per-session set history rows with estimated 1RM.
+- **Why**: reduces mental overhead; steppers prevent typos; inline history removes the need to navigate away to see what you've done.
+
+#### Meal Tracking (`MealTrackerScreen`)
+- **Before**: single text input + analyze button. **After**: quick-add pill row (4 common meals), description input below, macro preview pills (kcal / protein / carbs / fat) in the low-confidence confirmation card.
+- **Why**: most users log similar meals repeatedly; shortcuts cut 2–3 taps from the most common path. Macro pills give instant visual feedback before confirming.
+
+#### Progress / Calendar (`CalendarScreen`)
+- **Before**: single-line text summary strings. **After**: three accent-bordered stat cards (streak / workouts / meals); trend snapshot with three metrics side-by-side; colour-coded nutrition adherence bar (green ≥80%, amber ≥50%, red <50%).
+- **Why**: numbers in cards are far more scannable than embedded text; colour semantics communicate goal attainment at a glance.
+
+#### Gyms (`GymsScreen`)
+- **Before**: load-on-demand button; rating number badge. **After**: auto-load on mount; rank badge (#1, #2 …); featured badge with warm background; 5-star visual rating; chevron affordance suggesting tappability.
+- **Why**: gym discovery is a browse experience — auto-loading and visual affordances match that mental model.
+
+#### App header (`App.tsx`)
+- **Before**: plain text wordmark. **After**: small logo-mark (💪 in rounded square) + bold wordmark side-by-side; gym button shows active state with primary border when selected.
+- **Why**: brand mark makes the app feel polished; active state communicates current mode without a separate tab bar.
+
+### New shared component
+
+| Component | Purpose |
+|---|---|
+| `SectionHeader` | Screen-level title + subtitle with enforced letter-spacing and `accessibilityRole="header"` for VoiceOver/TalkBack navigation |
+
 ## UI flow and design system
 
 ### Guided step-by-step user journey
 
-The mobile app now surfaces a clear, linear onboarding flow with a visible progress indicator in the header:
+The mobile app surfaces a clear, linear onboarding flow with a visible progress indicator in the header:
 
 ```
 Sign In → Goals → Meals → Workout → Progress
@@ -35,15 +85,17 @@ All visual primitives are defined as named tokens:
 | `Card` | Surface container with default / elevated / flat variants and sm/md/lg/none padding |
 | `Input` | Labeled `TextInput` with inline validation, helper text, error text, and accessibility hints |
 | `ProgressSteps` | Horizontal step progress bar with filled dots for completed steps, active ring for current step, and a progress bar fill |
+| `SectionHeader` | Screen-level title + subtitle block with `accessibilityRole="header"` |
 | `StatusMessage` | Inline success / error / warning / info feedback with semantic colors and `accessibilityLiveRegion` |
 
 ### Accessibility improvements
 
 - All interactive elements have `accessible`, `accessibilityRole`, and `accessibilityLabel` props.
-- Minimum tap target size (44 px) enforced on all buttons.
-- `accessibilityState` (disabled, busy) forwarded on Button.
+- Minimum tap target size (44 px) enforced on all buttons and interactive chips.
+- `accessibilityState` (disabled, busy, checked, selected) forwarded on all toggleable elements.
 - StatusMessage uses `accessibilityRole="alert"` and `accessibilityLiveRegion="polite"`.
 - Input errors use `accessibilityLiveRegion="polite"` for assistive technology announcements.
+- `SectionHeader` uses `accessibilityRole="header"` for screen reader section navigation.
 - High-contrast semantic colors used throughout (primary green on dark backgrounds).
 
 ### Forms UX
@@ -51,7 +103,7 @@ All visual primitives are defined as named tokens:
 - Inline validation on blur for Onboarding fields (age, weight, height) with friendly error messages.
 - All submit buttons show a loading spinner and prevent duplicate submits via a `loading` guard.
 - Disabled states (e.g. "Sign in first") explained with helper text.
-- Confirm-meal flow in MealTrackerScreen uses labeled inputs and a Discard option.
+- Confirm-meal flow in MealTrackerScreen uses macro-preview pills + labeled inputs and a Discard option.
 
 ## Architecture summary
 
