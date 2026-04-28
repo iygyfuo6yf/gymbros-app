@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { apiFetch } from '../api/client';
 import { Button, Card, SectionHeader, StatusMessage } from '../components';
@@ -48,7 +48,7 @@ export function GymsScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (loading) return;
     try {
       setError('');
@@ -60,9 +60,9 @@ export function GymsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [load]);
 
   return (
     <View style={styles.container}>

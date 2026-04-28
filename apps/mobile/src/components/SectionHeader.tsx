@@ -32,6 +32,6 @@ const styles = StyleSheet.create({
   subtitle: {
     color: colors.textMuted,
     fontSize: typography.size.md,
-    lineHeight: typography.size.md * typography.lineHeight.relaxed,
+    lineHeight: 24, // typography.size.md (15) × lineHeight.relaxed (1.6)
   },
 });

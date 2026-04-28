@@ -13,6 +13,12 @@ interface TrendPoint {
   adherencePct: number | null;
 }
 
+function getAdherenceColor(adherence: number): string {
+  if (adherence >= 80) return colors.success;
+  if (adherence >= 50) return colors.warning;
+  return colors.error;
+}
+
 interface StatCardProps {
   label: string;
   value: string;
@@ -184,7 +190,7 @@ export function CalendarScreen({ onSuccess }: CalendarScreenProps) {
             </View>
             <View style={styles.trendDivider} />
             <View style={styles.trendMetric}>
-              <Text style={[styles.trendMetricValue, { color: adherence >= 80 ? colors.success : adherence >= 50 ? colors.warning : colors.error }]}>
+              <Text style={[styles.trendMetricValue, { color: getAdherenceColor(adherence) }]}>
                 {adherence}%
               </Text>
               <Text style={styles.trendMetricLabel}>Nutrition</Text>
@@ -203,7 +209,7 @@ export function CalendarScreen({ onSuccess }: CalendarScreenProps) {
                   styles.adherenceFill,
                   {
                     width: `${adherenceBarWidth}%`,
-                    backgroundColor: adherence >= 80 ? colors.success : adherence >= 50 ? colors.warning : colors.error,
+                    backgroundColor: getAdherenceColor(adherence),
                   },
                 ]}
               />

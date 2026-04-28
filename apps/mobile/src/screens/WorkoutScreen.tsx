@@ -75,7 +75,7 @@ export function WorkoutScreen({ onSuccess }: WorkoutScreenProps) {
       }).catch(() => undefined);
 
       setLoggedSets((prev) => [...prev, { reps, weightKg, estimated1RM: latest }]);
-      setStatus(`Set ${loggedSets.length + 1} logged!${latest !== undefined ? `  Est. 1RM: ${latest} kg` : ''}`);
+      setStatus(`Set ${loggedSets.length + 1} logged!${latest !== undefined ? ` Est. 1RM: ${latest} kg` : ''}`);
       setStatusVariant('success');
       onSuccess?.();
     } catch (err) {
