@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { apiFetch } from '../api/client';
-import { Button, Card, Input, StatusMessage } from '../components';
+import { Button, Card, Input, SectionHeader, StatusMessage } from '../components';
 import { useAuth } from '../context/AuthContext';
 import { enqueueOfflineAction } from '../sync/offlineQueue';
-import { colors, spacing, typography } from '../theme';
+import { colors, radius, spacing, typography } from '../theme';
 import type { MealEstimateResponse } from '../types';
 
 interface EditableMeal {
@@ -17,6 +17,22 @@ interface EditableMeal {
 
 interface MealTrackerScreenProps {
   onSuccess?: () => void;
+}
+
+const QUICK_MEALS = [
+  { label: 'Chicken & Rice', hint: 'chicken rice bowl' },
+  { label: 'Eggs & Toast', hint: 'scrambled eggs on toast' },
+  { label: 'Protein Shake', hint: 'whey protein shake with milk' },
+  { label: 'Oats', hint: 'oatmeal with banana' },
+];
+
+function MacroPill({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <View style={[styles.macroPill, { borderColor: color }]}>
+      <Text style={[styles.macroPillValue, { color }]}>{value}</Text>
+      <Text style={styles.macroPillLabel}>{label}</Text>
+    </View>
+  );
 }
 
 export function MealTrackerScreen({ onSuccess }: MealTrackerScreenProps) {
@@ -132,23 +148,61 @@ export function MealTrackerScreen({ onSuccess }: MealTrackerScreenProps) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Track a Meal</Text>
-      <Text style={styles.subtitle}>Describe or hint at your meal and we'll estimate the macros.</Text>
-
-      <Input
-        label="Meal description"
-        value={photoHint}
-        onChangeText={setPhotoHint}
-        placeholder="e.g. chicken rice bowl"
-        helperText="Be as specific as possible for a better estimate."
+      <SectionHeader
+        title="Track a Meal"
+        subtitle="Describe your meal and we'll estimate the macros instantly."
       />
+
+      {/* ── Quick-add shortcuts ── */}
+      {!editableMeal && (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Quick add</Text>
+          <View style={styles.quickGrid}>
+            {QUICK_MEALS.map((m) => (
+              <TouchableOpacity
+                key={m.hint}
+                style={[styles.quickCard, photoHint === m.hint && styles.quickCardActive]}
+                onPress={() => setPhotoHint(m.hint)}
+                accessible
+                accessibilityRole="button"
+                accessibilityLabel={`Quick add ${m.label}`}
+              >
+                <Text style={[styles.quickCardLabel, photoHint === m.hint && styles.quickCardLabelActive]}>
+                  {m.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* ── Meal description input ── */}
+      {!editableMeal && (
+        <Input
+          label="Meal description"
+          value={photoHint}
+          onChangeText={setPhotoHint}
+          placeholder="e.g. chicken rice bowl"
+          helperText="Be as specific as possible for a better estimate."
+        />
+      )}
 
       {!!result && <StatusMessage variant={resultVariant} message={result} />}
 
+      {/* ── Confirmation / edit form ── */}
       {editableMeal ? (
         <Card variant="default" padding="md">
-          <Text style={styles.confirmTitle}>Review & confirm meal</Text>
+          <Text style={styles.confirmTitle}>Review & confirm</Text>
           <Text style={styles.confirmSubtitle}>Adjust any values before saving.</Text>
+
+          {/* Macro preview pills */}
+          <View style={styles.macroPreviewRow}>
+            <MacroPill label="kcal" value={editableMeal.calories} color={colors.warning} />
+            <MacroPill label="protein" value={`${editableMeal.proteinGrams}g`} color={colors.primary} />
+            <MacroPill label="carbs" value={`${editableMeal.carbsGrams}g`} color={colors.secondary} />
+            <MacroPill label="fat" value={`${editableMeal.fatsGrams}g`} color={colors.error} />
+          </View>
+
           <View style={styles.confirmForm}>
             <Input
               label="Meal name"
@@ -208,6 +262,7 @@ export function MealTrackerScreen({ onSuccess }: MealTrackerScreenProps) {
         <Button
           label={loading ? 'Analyzing…' : 'Analyze Meal'}
           variant="secondary"
+          size="lg"
           loading={loading}
           onPress={analyze}
           disabled={!userId}
@@ -227,15 +282,40 @@ const styles = StyleSheet.create({
     gap: spacing['4'],
     marginBottom: spacing['5'],
   },
-  title: {
-    color: colors.text,
-    fontSize: typography.size['2xl'],
-    fontWeight: typography.weight.bold,
+  section: {
+    gap: spacing['2'],
   },
-  subtitle: {
+  sectionLabel: {
+    color: colors.textSecondary,
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  quickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing['2'],
+  },
+  quickCard: {
+    backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing['3'],
+    paddingVertical: spacing['2'],
+  },
+  quickCardActive: {
+    borderColor: colors.secondary,
+    backgroundColor: colors.infoBg,
+  },
+  quickCardLabel: {
     color: colors.textMuted,
-    fontSize: typography.size.md,
-    marginTop: -spacing['2'],
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.medium,
+  },
+  quickCardLabelActive: {
+    color: colors.infoText,
   },
   confirmTitle: {
     color: colors.text,
@@ -247,6 +327,27 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: typography.size.sm,
     marginBottom: spacing['3'],
+  },
+  macroPreviewRow: {
+    flexDirection: 'row',
+    gap: spacing['2'],
+    marginBottom: spacing['4'],
+  },
+  macroPill: {
+    flex: 1,
+    alignItems: 'center',
+    gap: spacing['0'],
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingVertical: spacing['2'],
+  },
+  macroPillValue: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.bold,
+  },
+  macroPillLabel: {
+    fontSize: typography.size.xs,
+    color: colors.textMuted,
   },
   confirmForm: {
     gap: spacing['3'],
@@ -264,3 +365,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+

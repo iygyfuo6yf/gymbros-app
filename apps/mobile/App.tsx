@@ -10,9 +10,17 @@ import { WorkoutScreen } from './src/screens/WorkoutScreen';
 import { CalendarScreen } from './src/screens/CalendarScreen';
 import { GymsScreen } from './src/screens/GymsScreen';
 import { getOfflineQueueLength, startOfflineQueueWorker } from './src/sync/offlineQueue';
-import { colors, spacing, typography } from './src/theme';
+import { colors, radius, spacing, typography } from './src/theme';
 
 const STEPS = ['Sign In', 'Goals', 'Meals', 'Workout', 'Progress'];
+
+// Step-specific next-button labels for better clarity
+const NEXT_LABELS: Record<number, string> = {
+  0: 'Skip →',
+  1: 'Skip →',
+  2: 'Skip →',
+  3: 'Skip →',
+};
 
 function AppShell() {
   const [currentStep, setCurrentStep] = useState(0);
@@ -83,14 +91,21 @@ function AppShell() {
             )}
           </View>
 
-          <Text style={styles.headerTitle}>GymBros</Text>
+          {/* Brand wordmark */}
+          <View style={styles.headerBrand}>
+            <View style={styles.headerLogoMark}>
+              <Text style={styles.headerLogoEmoji}>💪</Text>
+            </View>
+            <Text style={styles.headerTitle}>GymBros</Text>
+          </View>
 
           <TouchableOpacity
             onPress={() => setShowGyms((v) => !v)}
-            style={styles.gymsButton}
+            style={[styles.gymsButton, showGyms && styles.gymsButtonActive]}
             accessible
             accessibilityRole="button"
             accessibilityLabel="Browse gyms"
+            accessibilityState={{ selected: showGyms }}
           >
             <Text style={styles.gymsIcon}>🏋️</Text>
           </TouchableOpacity>
@@ -139,9 +154,9 @@ function AppShell() {
                 style={[styles.navButton, styles.navButtonPrimary, !canGoBack && styles.navButtonFull]}
                 accessible
                 accessibilityRole="button"
-                accessibilityLabel="Next step"
+                accessibilityLabel={`Skip to ${STEPS[currentStep + 1]}`}
               >
-                <Text style={styles.navButtonPrimaryLabel}>Skip →</Text>
+                <Text style={styles.navButtonPrimaryLabel}>{NEXT_LABELS[currentStep] ?? 'Skip →'}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -195,16 +210,39 @@ const styles = StyleSheet.create({
     fontWeight: typography.weight.bold,
     lineHeight: 32,
   },
+  headerBrand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing['2'],
+  },
+  headerLogoMark: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: colors.primaryDark,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerLogoEmoji: {
+    fontSize: 14,
+  },
   headerTitle: {
     color: colors.text,
     fontSize: typography.size.xl,
-    fontWeight: typography.weight.bold,
+    fontWeight: typography.weight.extrabold,
+    letterSpacing: -0.3,
   },
   gymsButton: {
     width: 40,
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: radius.md,
+  },
+  gymsButtonActive: {
+    backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.primary,
   },
   gymsIcon: {
     fontSize: 22,
@@ -235,7 +273,7 @@ const styles = StyleSheet.create({
   navButton: {
     flex: 1,
     minHeight: 44,
-    borderRadius: 8,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing['3'],
@@ -245,19 +283,22 @@ const styles = StyleSheet.create({
   },
   navButtonPrimary: {
     backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
   navButtonOutline: {
     borderWidth: 1,
     borderColor: colors.border,
   },
   navButtonPrimaryLabel: {
+    color: colors.textSecondary,
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+  },
+  navButtonOutlineLabel: {
     color: colors.textMuted,
     fontSize: typography.size.sm,
     fontWeight: typography.weight.medium,
   },
-  navButtonOutlineLabel: {
-    color: colors.textSecondary,
-    fontSize: typography.size.sm,
-    fontWeight: typography.weight.medium,
-  },
 });
+

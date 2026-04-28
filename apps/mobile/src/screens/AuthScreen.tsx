@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { apiFetch } from '../api/client';
 import { Button, Input, StatusMessage } from '../components';
 import { useAuth } from '../context/AuthContext';
-import { colors, spacing, typography } from '../theme';
+import { colors, radius, spacing, typography } from '../theme';
 import type { AuthResponse } from '../types';
 
 interface AuthScreenProps {
@@ -38,9 +38,25 @@ export function AuthScreen({ onSuccess }: AuthScreenProps) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome to GymBros</Text>
-      <Text style={styles.subtitle}>Sign in to start your fitness journey</Text>
+      {/* ── Hero brand area ── */}
+      <View style={styles.hero}>
+        <View style={styles.logoMark}>
+          <Text style={styles.logoEmoji}>💪</Text>
+        </View>
+        <Text style={styles.brand}>GymBros</Text>
+        <Text style={styles.tagline}>Your personal strength companion</Text>
+      </View>
 
+      {/* ── Value proposition pills ── */}
+      <View style={styles.pillRow}>
+        {['Track lifts', 'Log meals', 'See trends'].map((label) => (
+          <View key={label} style={styles.pill}>
+            <Text style={styles.pillText}>{label}</Text>
+          </View>
+        ))}
+      </View>
+
+      {/* ── Sign-in form ── */}
       <View style={styles.form}>
         <Input
           label="Email"
@@ -88,6 +104,10 @@ export function AuthScreen({ onSuccess }: AuthScreenProps) {
           accessibilityLabel="Sign in with Apple"
         />
       </View>
+
+      <Text style={styles.legal}>
+        By continuing you agree to our Terms of Service and Privacy Policy.
+      </Text>
     </View>
   );
 }
@@ -97,15 +117,52 @@ const styles = StyleSheet.create({
     gap: spacing['4'],
     marginBottom: spacing['5'],
   },
-  title: {
-    color: colors.text,
-    fontSize: typography.size['2xl'],
-    fontWeight: typography.weight.bold,
+  hero: {
+    alignItems: 'center',
+    gap: spacing['2'],
+    paddingVertical: spacing['6'],
   },
-  subtitle: {
+  logoMark: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    backgroundColor: colors.primaryDark,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing['1'],
+  },
+  logoEmoji: {
+    fontSize: 36,
+  },
+  brand: {
+    color: colors.text,
+    fontSize: typography.size['3xl'],
+    fontWeight: typography.weight.extrabold,
+    letterSpacing: -0.5,
+  },
+  tagline: {
     color: colors.textMuted,
     fontSize: typography.size.md,
+    textAlign: 'center',
+  },
+  pillRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing['2'],
     marginTop: -spacing['2'],
+  },
+  pill: {
+    backgroundColor: colors.surface2,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing['3'],
+    paddingVertical: spacing['1'],
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  pillText: {
+    color: colors.primary,
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.semibold,
   },
   form: {
     gap: spacing['3'],
@@ -113,4 +170,11 @@ const styles = StyleSheet.create({
   actions: {
     gap: spacing['2'],
   },
+  legal: {
+    fontSize: typography.size.xs,
+    color: colors.textDisabled,
+    textAlign: 'center',
+    lineHeight: typography.size.xs * typography.lineHeight.relaxed,
+  },
 });
+
